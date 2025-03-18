@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-df = pd.read_csv('ch2_scores_em.csv',index_col = 'student number')
+df = pd.read_csv('ch2_scores_em.csv', index_col ='student number')
 df.info()
 print(df.head())
 print()
