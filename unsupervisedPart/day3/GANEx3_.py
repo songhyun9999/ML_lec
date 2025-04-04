@@ -2,9 +2,10 @@ import glob
 import os
 from PIL import Image
 import matplotlib.pyplot as plt
+import torch.optim as optim
 
-path_to_imgs = './GANIMG/img_align_celeba'
-imgs = glob.glob(os.path.join(path_to_imgs, '*'))
+# path_to_imgs = './GANIMG/img_align_celeba'
+# imgs = glob.glob(os.path.join(path_to_imgs, '*'))
 # print(imgs)
 #
 # for i in range(9):
@@ -18,6 +19,9 @@ from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import torch
+import torch.nn as nn
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 dataset = ImageFolder(
     root='./GANIMG',
@@ -32,12 +36,12 @@ dataset = ImageFolder(
 data_loader = DataLoader(dataset=dataset,
                          batch_size=128,
                          shuffle=True)
-it = iter(data_loader)
-data = next(it)
-print(data)
-print(data[0].shape)
+# it = iter(data_loader)
+# data = next(it)
+# print(data)
+# print(data[0].shape)
 
-import torch.nn as nn
+
 
 class Generator(nn.Module):
     def __init__(self):
@@ -107,59 +111,75 @@ def weight_init(m):
         nn.init.normal_(m.weight.data, 1.0, 0.02)
         nn.init.constant_(m.bias.data, 0)
 
-G = Generator()
-G.apply(weight_init)
+def train(generator,discriminator):
+    G_optimizer = optim.Adam(G.parameters(), lr=0.0001, betas=(0.5, 0.999))
+    D_optimizer = optim.Adam(D.parameters(), lr=0.0001, betas=(0.5, 0.999))
+    for epoch in range(50):
+        for step,data in enumerate(data_loader):
+            data = tuple(t.to(device)for t in data)
+            D_optimizer.zero_grad()
 
-D = Discriminator()
-D.apply(weight_init)
+            label_real = torch.ones_like(data[1], dtype=torch.float32)
+            label_fake = torch.zeros_like(data[1], dtype=torch.float32)
 
-# import torch.optim as optim
-#
-# G_optimizer = optim.Adam(G.parameters(), lr=0.0001, betas=(0.5, 0.999))
-# D_optimizer = optim.Adam(D.parameters(), lr=0.0001, betas=(0.5, 0.999))
-#
-# for epoch in range(50):
-#     for data in data_loader:
-#         D_optimizer.zero_grad()
-#
-#         label_real = torch.ones_like(data[1], dtype=torch.float32)
-#         label_fake = torch.zeros_like(data[1], dtype=torch.float32)
-#
-#         hypothesis = D(data[0])
-#
-#         d_loss_real = nn.BCELoss()(torch.squeeze(hypothesis), label_real)
-#         d_loss_real.backward()
-#
-#         noise = torch.randn(label_real.shape[0], 100, 1, 1)
-#         fake_img = G(noise)
-#
-#         hypothesis2 = D(fake_img.detach())
-#
-#         d_loss_fake = nn.BCELoss()(torch.squeeze(hypothesis2), label_fake)
-#         d_loss_fake.backward()
-#         D_optimizer.step()
-#
-#         d_loss = d_loss_real + d_loss_fake
-#
-#         G_optimizer.zero_grad()
-#         hypothesis3 = D(fake_img)
-#         g_loss = nn.BCELoss()(torch.squeeze(hypothesis3), label_real)
-#         g_loss.backward()
-#         G_optimizer.step()
-#
-#         print(f'epoch:{epoch+1} d_loss:{d_loss.item():4f} g_loss:{g_loss.item():4f}')
-#
-# torch.save(G.state_dict(), 'Generator.pth')
-# torch.save(D.state_dict(), 'Discriminator.pth')
+            hypothesis = discriminator(data[0])
 
-with torch.no_grad():
-    G.load_state_dict(torch.load('./Generator.pth'))
-    noise = torch.randn(1, 100, 1, 1)
-    pred = G(noise).squeeze()
-    pred = pred.permute(1, 2, 0).numpy()
-    pred = (pred+1.0)/2.0
+            d_loss_real = nn.BCELoss()(torch.squeeze(hypothesis), label_real)
+            d_loss_real.backward()
 
-    plt.imshow(pred)
-    plt.title('prediction image')
-    plt.show()
+            noise = torch.randn(label_real.shape[0], 100, 1, 1).to(device)
+            fake_img = generator(noise)
+
+            hypothesis2 = discriminator(fake_img.detach())
+
+            d_loss_fake = nn.BCELoss()(torch.squeeze(hypothesis2), label_fake)
+            d_loss_fake.backward()
+            D_optimizer.step()
+
+            d_loss = d_loss_real + d_loss_fake
+
+            G_optimizer.zero_grad()
+            hypothesis3 = discriminator(fake_img)
+            g_loss = nn.BCELoss()(torch.squeeze(hypothesis3), label_real)
+            g_loss.backward()
+            G_optimizer.step()
+
+            if step % 10 ==0:
+                print(f'epoch:{epoch} d_loss:{d_loss.item():4f} g_loss:{g_loss.item():4f}')
+
+    torch.save(G.state_dict(), f'Generator_{epoch}.pth')
+    torch.save(D.state_dict(), f'Discriminator_{epoch}.pth')
+
+if __name__ == '__main__':
+    print(f'using {device}')
+    G = Generator()
+    G.apply(weight_init)
+
+    D = Discriminator()
+    D.apply(weight_init)
+
+    if os.path.exists('./Generator.pth'):
+        G.load_state_dict(torch.load('./Generator.pth'))
+
+    if os.path.exists('./Discriminator.pth'):
+        D.load_state_dict(torch.load('./Discriminator.pth'))
+
+    G.to(device)
+    D.to(device)
+
+    train(G,D)
+
+    noise = torch.randn(64, 100, 1, 1)
+
+    with torch.no_grad():
+        G.cpu()
+        G.load_state_dict(torch.load('./Generator_49.pth'))
+        noise = torch.randn(1, 100, 1, 1)
+        pred = G(noise).squeeze()
+        pred = pred.permute(1, 2, 0).numpy()
+        pred = (pred+1.0)/2.0
+
+        plt.imshow(pred)
+        plt.title('prediction image')
+        plt.show()
 
