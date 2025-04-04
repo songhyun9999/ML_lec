@@ -7,3 +7,4 @@ P00000001-ALL.csv
 MNIST_data
 FashionMNIST_data
 CIFAR10_data
+*.png
