@@ -9,3 +9,4 @@ FashionMNIST_data
 CIFAR10_data
 *.png
 *.jpg
+*.pth
