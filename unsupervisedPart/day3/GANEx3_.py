@@ -147,8 +147,8 @@ def train(generator,discriminator):
             if step % 10 ==0:
                 print(f'epoch:{epoch} d_loss:{d_loss.item():4f} g_loss:{g_loss.item():4f}')
 
-    torch.save(G.state_dict(), f'Generator_{epoch}.pth')
-    torch.save(D.state_dict(), f'Discriminator_{epoch}.pth')
+    torch.save(G.state_dict(), f'Generator_best.pth')
+    torch.save(D.state_dict(), f'Discriminator_best.pth')
 
 if __name__ == '__main__':
     print(f'using {device}')
@@ -158,11 +158,11 @@ if __name__ == '__main__':
     D = Discriminator()
     D.apply(weight_init)
 
-    if os.path.exists('./Generator.pth'):
-        G.load_state_dict(torch.load('./Generator.pth'))
+    if os.path.exists('./Generator_best.pth'):
+        G.load_state_dict(torch.load('./Generator_best.pth'))
 
-    if os.path.exists('./Discriminator.pth'):
-        D.load_state_dict(torch.load('./Discriminator.pth'))
+    if os.path.exists('./Discriminator_best.pth'):
+        D.load_state_dict(torch.load('./Discriminator_best.pth'))
 
     G.to(device)
     D.to(device)
@@ -173,7 +173,7 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         G.cpu()
-        G.load_state_dict(torch.load('./Generator_49.pth'))
+        G.load_state_dict(torch.load('./Generator_best.pth'))
         noise = torch.randn(1, 100, 1, 1)
         pred = G(noise).squeeze()
         pred = pred.permute(1, 2, 0).numpy()
