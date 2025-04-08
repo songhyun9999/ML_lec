@@ -20,8 +20,11 @@ from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import torch
 import torch.nn as nn
+from torchvision.utils import save_image
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+dir_name = 'gan_results'
+model_path = './models/'
 
 dataset = ImageFolder(
     root='./GANIMG',
@@ -41,6 +44,14 @@ data_loader = DataLoader(dataset=dataset,
 # print(data)
 # print(data[0].shape)
 
+def save_images(G,epoch):
+    G.eval()
+    with torch.no_grad():
+        noise = torch.randn(25, 100, 1, 1).to(device)
+        pred = G(noise).squeeze()
+        pred = (pred+1.0)/2.0
+
+        save_image(pred,os.path.join(dir_name, 'CGAN_fake_samples{}.png'.format(epoch+1)),nrow=5)
 
 
 class Generator(nn.Module):
@@ -114,7 +125,7 @@ def weight_init(m):
 def train(generator,discriminator):
     G_optimizer = optim.Adam(G.parameters(), lr=0.0001, betas=(0.5, 0.999))
     D_optimizer = optim.Adam(D.parameters(), lr=0.0001, betas=(0.5, 0.999))
-    for epoch in range(50):
+    for epoch in range(150):
         for step,data in enumerate(data_loader):
             data = tuple(t.to(device)for t in data)
             D_optimizer.zero_grad()
@@ -146,9 +157,15 @@ def train(generator,discriminator):
 
             if step % 10 ==0:
                 print(f'epoch:{epoch} d_loss:{d_loss.item():4f} g_loss:{g_loss.item():4f}')
+        if (epoch+1) % 50 == 0:
+            torch.save(G.state_dict(), os.path.join(model_path,f'Generator_{epoch+1}.pth'))
+            torch.save(D.state_dict(), os.path.join(model_path,f'Discriminator_{epoch+1}.pth'))
 
-    torch.save(G.state_dict(), f'Generator_best.pth')
-    torch.save(D.state_dict(), f'Discriminator_best.pth')
+            save_images(generator,epoch)
+
+    torch.save(G.state_dict(), os.path.join(model_path,f'Generator_best.pth'))
+    torch.save(D.state_dict(), os.path.join(model_path,f'Discriminator_best.pth'))
+
 
 if __name__ == '__main__':
     print(f'using {device}')
@@ -158,28 +175,29 @@ if __name__ == '__main__':
     D = Discriminator()
     D.apply(weight_init)
 
-    if os.path.exists('./Generator_best.pth'):
-        G.load_state_dict(torch.load('./Generator_best.pth'))
+    if os.path.exists(os.path.join(model_path,f'Generator_best.pth')):
+        G.load_state_dict(torch.load(os.path.join(model_path,f'Generator_best.pth')))
 
-    if os.path.exists('./Discriminator_best.pth'):
-        D.load_state_dict(torch.load('./Discriminator_best.pth'))
+    if os.path.exists(os.path.join(model_path,f'Discriminator_best.pth')):
+        D.load_state_dict(torch.load(os.path.join(model_path,f'Discriminator_best.pth')))
 
     G.to(device)
     D.to(device)
 
     train(G,D)
 
-    noise = torch.randn(64, 100, 1, 1)
-
     with torch.no_grad():
         G.cpu()
-        G.load_state_dict(torch.load('./Generator_best.pth'))
+        G.load_state_dict(torch.load(os.path.join(model_path,f'Generator_best.pth')))
         noise = torch.randn(1, 100, 1, 1)
         pred = G(noise).squeeze()
         pred = pred.permute(1, 2, 0).numpy()
-        pred = (pred+1.0)/2.0
+        pred = (pred+1)/2
 
         plt.imshow(pred)
         plt.title('prediction image')
         plt.show()
+
+
+
 
