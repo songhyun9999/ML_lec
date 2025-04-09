@@ -11,3 +11,4 @@ CIFAR10_data
 *.jpg
 *.pth
 *.csv
+*.txt
