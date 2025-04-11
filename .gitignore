@@ -12,3 +12,4 @@ CIFAR10_data
 *.pth
 *.csv
 *.txt
+*.safetensors
