@@ -13,3 +13,4 @@ CIFAR10_data
 *.csv
 *.txt
 *.safetensors
+*.jpeg
